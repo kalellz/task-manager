@@ -6,29 +6,88 @@ import hashlib
 
 dynamodb = boto3.resource("dynamodb")
 TABLE_NAME = "AppData"
+s3 = boto3.client("s3")
+BUCKET_NAME = "task-manager-user-images"
+REGION = "sa-east-1"
 table = dynamodb.Table(TABLE_NAME)
+
+def generate_upload_url(event):
+    body = json.loads(event.get("body", "{}"))
+    user_id = body.get("userId")
+
+    if not user_id:
+        return {
+            "statusCode": 400,
+            "body": json.dumps({"error": "Parametro 'userId' obrigatório"})
+        }
+
+    # Nome único para o arquivo no S3
+    key = f"users/{user_id}_{int(time.time())}.png"
+
+    # URL temporária (PUT) para upload
+    presigned_url = s3.generate_presigned_url(
+        "put_object",
+        Params={"Bucket": BUCKET_NAME, "Key": key},
+        ExpiresIn=300  # 5 minutos
+    )
+
+    # URL final pública para leitura
+    image_url = f"https://{BUCKET_NAME}.s3.{REGION}.amazonaws.com/{key}"
+
+    # Atualiza DynamoDB para salvar a referência
+    table.update_item(
+        Key={"PK": f"USER#{user_id}", "SK": "PROFILE"},
+        UpdateExpression="SET #img = :img",
+        ExpressionAttributeNames={"#img": "imageUrl"},
+        ExpressionAttributeValues={":img": image_url}
+    )
+
+    return {
+        "statusCode": 200,
+        "headers": {"Content-Type": "application/json"},
+        "body": json.dumps({
+            "uploadUrl": presigned_url,
+            "imageUrl": image_url
+        })
+    }
 
 def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
 def lambda_handler(event, context):
     try:
-        method = event.get("httpMethod") or event.get("requestContext", {}).get("http", {}).get("method")
+        method = event.get("httpMethod")
+        path = event.get("path") or ""
+        resource = event.get("resource") or ""
 
-        if method == "POST":
+        if method == "POST" and resource == "/users/uploadUrl":
+            return generate_upload_url(event)
+
+        elif method == "POST" and (resource == "/users" or path.endswith("/users")):
             return create_user(event)
+
         elif method == "GET":
             return get_user(event)
+
         elif method == "PUT":
             return update_user(event)
+
         elif method == "DELETE":
             return delete_user(event)
-        else:
-            return {
-                "statusCode": 405,
-                "headers": {"Content-Type": "application/json"},
-                "body": json.dumps({"error": f"Método {method} não permitido"})
-            }
+
+        return {
+            "statusCode": 405,
+            "headers": {"Content-Type": "application/json"},
+            "body": json.dumps({"error": f"Método {method} não permitido"})
+        }
+
+    except Exception as e:
+        print("Erro geral:", str(e))
+        return {
+            "statusCode": 500,
+            "headers": {"Content-Type": "application/json"},
+            "body": json.dumps({"error": "Erro interno do servidor"})
+        }
 
     except Exception as e:
         print("Erro geral:", str(e))

@@ -5,7 +5,7 @@ info:
   description: API de autenticação, usuários e tarefas com JWT Authorizer.
 
 servers:
-  - url: https://<SEU_API_ID>.execute-api.sa-east-1.amazonaws.com/dev
+  - url: https://mxrobpiuw7.execute-api.sa-east-1.amazonaws.com/dev
 
 paths:
   /auth/login:
