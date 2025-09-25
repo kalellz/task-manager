@@ -1,7 +1,7 @@
 # 📝 Task Manager
 
-Gerenciador de Tarefas simples com autenticação de usuários.  
-Este projeto é "fullstack + infra" e tem como objetivo estudar **Angular, Node, Python, DynamoDB, AWS (Lambda + API Gateway), OpenAPI/Swagger e Terraform**.
+Gerenciador de Tarefas simples com autenticação de usuários.
+Este projeto é "fullstack + infra" e tem como objetivo estudar **Angular, Python (AWS Lambda), API Gateway, DynamoDB, OpenAPI/Swagger e Terraform**.
 
 ---
 
@@ -16,50 +16,103 @@ Este projeto é "fullstack + infra" e tem como objetivo estudar **Angular, Node,
 ### Backend
 - Python (AWS Lambda)
 - API REST (API Gateway)
-- OpenAPI & Swagger (documentação)
+- Lambda Authorizer (middleware JWT)
+- OpenAPI & Swagger (documentação interativa via Swagger UI)
 
 ### Infraestrutura
 - Terraform (Infra as Code)
 - AWS API Gateway
 - AWS Lambda
 - DynamoDB
+- IAM (roles & permissions)
+- CloudWatch (logs e monitoramento)
 - Pipelines (CI/CD)
 
 ---
 
 ## 📌 Funcionalidades
 
-- Cadastro de usuário (signup)
-- Login de usuário (jwt token)
-- CRUD de tarefas:
+- **Usuários**
+  - Cadastro (signup)
+  - Login (gera JWT válido)
+  - Reset de senha (request, validate, confirm)
+  - CRUD de usuário (GET/POST/PUT/DELETE)
+- **Tarefas**
   - Criar
   - Listar
   - Editar
   - Excluir
-- Configuração de perfil de usuário
-- Logout
+- **Autenticação & Segurança**
+  - JWT Token (gerado no login)
+  - Lambda Authorizer → protege rotas (`/users`, `/tasks`)
+  - Apenas `/auth/login` e `/auth/reset/*` são públicas
+- **Documentação**
+  - Swagger UI integrado (`docs/ui/index.html`)
+  - Especificação OpenAPI (`docs/swagger.yaml`)
 
 ---
 
 ## 🛠 Estrutura do Projeto
 
-# User Service - AWS Lambda + DynamoDB + API Gateway
+```
+TASK-MANAGER/
+ ┣ auth/               # Lambda de autenticação
+ ┃ ┣ lambda_function.py
+ ┃ ┗ deploy.ps1
+ ┣ user-service/       # CRUD de usuários
+ ┃ ┣ lambda_function.py
+ ┃ ┗ deploy.ps1
+ ┣ task-service/       # CRUD de tarefas
+ ┃ ┣ lambda_function.py
+ ┃ ┗ deploy.ps1
+ ┣ docs/               # Documentação da API
+ ┃ ┣ swagger.yaml      # Especificação OpenAPI
+ ┃ ┗ ui/               # Swagger UI (executar index.html)
+ ┃   ┗ index.html
+ ┗ README.md
+```
 
-```markdown
-# User Service - AWS Lambda + DynamoDB + API Gateway
+---
 
-## Estrutura do projeto
-- `lambda_function.py` → função Lambda (POST/GET/PUT/DELETE de usuários)
-- `deploy.ps1` → script de deploy automático via AWS CLI
+## 🔐 Fluxo de Autenticação
 
-## Como fazer deploy
-1. Ajuste seu código no `lambda_function.py`.
-2. Rode o script de deploy: .\deploy.ps1
-   
-3. A função `UserServiceLambda` será atualizada na AWS automaticamente.
+1. `POST /auth/login` → recebe email/senha → retorna JWT.
+2. `Authorization: Bearer <jwt>` → obrigatório para `/users` e `/tasks`.
+3. API Gateway bloqueia automaticamente chamadas sem ou com token inválido (`401/403`).
+4. Reset de senha:
+   - `POST /auth/reset/request` → envia código
+   - `POST /auth/reset/validate` → valida código
+   - `POST /auth/reset/confirm` → troca senha
 
-## Pré-requisitos
+---
+
+## 📖 Swagger (Documentação)
+
+### Como acessar:
+1. Vá até a pasta `docs/ui`:
+   ```bash
+   cd docs/ui
+   python -m http.server 8080
+   ```
+
+2. Acesse no navegador:
+   👉 [http://localhost:8080/index.html](http://localhost:8080/index.html)
+
+A API será carregada usando a especificação do `swagger.yaml`.
+
+---
+
+## 🚀 Deploy dos serviços
+
+Cada serviço (auth, user, task) possui seu script `deploy.ps1` para automatizar o upload da Lambda:
+
+```powershell
+# Exemplo: deployar User Service
+cd user-service
+.\deploy.ps1
+```
+
+### Pré-requisitos:
 - AWS CLI configurada (`aws configure`)
 - Python 3.9+
 - PowerShell (Windows) ou bash (Linux/Mac com `deploy.sh`)
-```

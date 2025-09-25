@@ -1,0 +1,186 @@
+openapi: 3.0.3
+info:
+  title: Task Manager API
+  version: 1.0.0
+  description: API de autenticação, usuários e tarefas com JWT Authorizer.
+
+servers:
+  - url: https://<SEU_API_ID>.execute-api.sa-east-1.amazonaws.com/dev
+
+paths:
+  /auth/login:
+    post:
+      summary: Login do usuário
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  example: test@example.com
+                password:
+                  type: string
+                  example: Senha123
+      responses:
+        "200":
+          description: Login realizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken:
+                    type: string
+                    example: eyJhbGciOiJIUzI1NiIsInR5c...
+                  userId:
+                    type: string
+                    example: 418e2874-3826-4e5c-b5ab-3cc5793d8939
+        "401":
+          description: Credenciais inválidas
+
+  /auth/reset/request:
+    post:
+      summary: Solicita código de reset de senha
+      tags: [Auth]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+      responses:
+        "200":
+          description: Código de reset enviado
+
+  /auth/reset/validate:
+    post:
+      summary: Valida código de reset
+      tags: [Auth]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                code:
+                  type: string
+      responses:
+        "200":
+          description: Código válido
+
+  /auth/reset/confirm:
+    post:
+      summary: Define nova senha
+      tags: [Auth]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                newPassword:
+                  type: string
+      responses:
+        "200":
+          description: Senha alterada
+
+  /users:
+    get:
+      summary: Lista usuários
+      security:
+        - bearerAuth: []
+      tags: [Users]
+      responses:
+        "200":
+          description: Lista de usuários
+    post:
+      summary: Cria usuário
+      tags: [Users]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                name:
+                  type: string
+                password:
+                  type: string
+      responses:
+        "201":
+          description: Usuário criado
+
+  /users/{userId}:
+    get:
+      summary: Busca usuário por ID
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Usuário encontrado
+        "404":
+          description: Usuário não encontrado
+    put:
+      summary: Atualiza usuário
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Usuário atualizado
+    delete:
+      summary: Remove usuário
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Usuário removido
+
+  /tasks:
+    get:
+      summary: Lista tarefas
+      tags: [Tasks]
+      security:
+        - bearerAuth: []
+    post:
+      summary: Cria tarefa
+      tags: [Tasks]
+      security:
+        - bearerAuth: []
+    put:
+      summary: Atualiza tarefa
+      tags: [Tasks]
+      security:
+        - bearerAuth: []
+    delete:
+      summary: Deleta tarefa
+      tags: [Tasks]
+      security:
+        - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
