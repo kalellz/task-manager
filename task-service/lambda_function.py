@@ -59,19 +59,27 @@ def create_task(event):
 
 def get_tasks(event):
     params = event.get("queryStringParameters") or {}
-    user_id = params.get("userId")
-    
-    if not user_id:
-        return {"statusCode": 400, "headers": {"Content-Type": "application/json"},
-                "body": json.dumps({"error": "Parametro 'userId' é obrigatório"})}
 
+    user_id = params.get("userId") if params else None
+    task_id = params.get("taskId") if params else None
+
+    if not user_id:
+        return {"statusCode": 400, "body": json.dumps({"error": "Parametro 'userId' é obrigatório"})}
+
+    # Buscar task específica
+    if task_id:
+        resp = table.get_item(Key={"PK": f"USER#{user_id}", "SK": f"TASK#{task_id}"})
+        if "Item" not in resp:
+            return {"statusCode": 404, "body": json.dumps({"error": "Task não encontrada"})}
+        return {"statusCode": 200, "body": json.dumps(resp["Item"], default=str)}
+
+    # Buscar todas tasks de um user
     resp = table.query(
         KeyConditionExpression="PK = :u AND begins_with(SK, :t)",
         ExpressionAttributeValues={":u": f"USER#{user_id}", ":t": "TASK#"}
     )
     tasks = resp.get("Items", [])
-    return {"statusCode": 200, "headers": {"Content-Type": "application/json"},
-            "body": json.dumps({"tasks": tasks}, default=str)}
+    return {"statusCode": 200, "body": json.dumps({"tasks": tasks}, default=str)}
 
 def update_task(event):
     try:

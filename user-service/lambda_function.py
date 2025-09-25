@@ -62,19 +62,21 @@ def create_user(event):
 
 def get_user(event):
     params = event.get("queryStringParameters") or {}
-    user_id = params.get("id")
-    if not user_id:
-        return {"statusCode": 400, "headers": {"Content-Type": "application/json"},
-                "body": json.dumps({"error": "Parametro 'id' é obrigatório"})}
 
-    resp = table.get_item(Key={"PK": f"USER#{user_id}", "SK": "PROFILE"})
-    if "Item" not in resp:
-        return {"statusCode": 404, "headers": {"Content-Type": "application/json"},
-                "body": json.dumps({"error": "Usuário não encontrado"})}
+    user_id = params.get("id") if params else None
+    if user_id:  # Buscar só um usuário
+        resp = table.get_item(Key={"PK": f"USER#{user_id}", "SK": "PROFILE"})
+        if "Item" not in resp:
+            return {"statusCode": 404, "body": json.dumps({"error": "Usuário não encontrado"})}
+        return {"statusCode": 200, "body": json.dumps(resp["Item"], default=str)}
 
-    user = resp["Item"]
-    return {"statusCode": 200, "headers": {"Content-Type": "application/json"},
-            "body": json.dumps(user)}
+    # Buscar todos (scan com filtro por SK = PROFILE)
+    resp = table.scan(
+        FilterExpression="SK = :sk",
+        ExpressionAttributeValues={":sk": "PROFILE"}
+    )
+    users = resp.get("Items", [])
+    return {"statusCode": 200, "body": json.dumps({"users": users}, default=str)}
 
 def update_user(event):
     try:
