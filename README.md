@@ -49,17 +49,14 @@ Este projeto é "fullstack + infra" e tem como objetivo estudar **Angular, Node,
 # User Service - AWS Lambda + DynamoDB + API Gateway
 
 ## Estrutura do projeto
-- `src/app.py` → função Lambda (POST/GET/PUT/DELETE de usuários)
-- `requirements.txt` → dependências Python
+- `lambda_function.py` → função Lambda (POST/GET/PUT/DELETE de usuários)
 - `deploy.ps1` → script de deploy automático via AWS CLI
-- `openapi.yaml` → documentação da API (OpenAPI/Swagger)
 
 ## Como fazer deploy
-1. Ajuste seu código em `src/app.py`.
-2. Se adicionar dependências novas → `pip install <lib>`, depois adicione no `requirements.txt`.
-3. Rode o script de deploy: .\deploy.ps1
+1. Ajuste seu código no `lambda_function.py`.
+2. Rode o script de deploy: .\deploy.ps1
    
-4. A função `UserServiceLambda` será atualizada na AWS automaticamente.
+3. A função `UserServiceLambda` será atualizada na AWS automaticamente.
 
 ## Pré-requisitos
 - AWS CLI configurada (`aws configure`)

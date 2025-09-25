@@ -77,41 +77,76 @@ def get_user(event):
             "body": json.dumps(user)}
 
 def update_user(event):
-    body = json.loads(event.get("body", "{}"))
-    user_id, name, email = body.get("userId"), body.get("name"), body.get("email")
+    try:
+        body = json.loads(event.get("body", "{}"))
+        user_id, name, email = body.get("userId"), body.get("name"), body.get("email")
 
-    if not user_id:
-        return {"statusCode": 400, "headers": {"Content-Type": "application/json"},
-                "body": json.dumps({"error": "Campo 'userId' obrigatório"})}
+        if not user_id:
+            return {"statusCode": 400, "body": json.dumps({"error": "Campo 'userId' obrigatório"})}
 
-    update_expr, expr_attr = [], {}
-    if name: 
-        update_expr.append("name = :n")
-        expr_attr[":n"] = name
-    if email: 
-        update_expr.append("email = :e")
-        expr_attr[":e"] = email
+        # Pega o usuário atual
+        key = {"PK": f"USER#{user_id}", "SK": "PROFILE"}
+        resp = table.get_item(Key=key)
+        if "Item" not in resp:
+            return {"statusCode": 404, "body": json.dumps({"error": "Usuário não encontrado"})}
+        
+        current_user = resp["Item"]
 
-    if not update_expr:
-        return {"statusCode": 400, "headers": {"Content-Type": "application/json"},
-                "body": json.dumps({"error": "Nada para atualizar"})}
+        # Só atualiza se algum valor for diferente
+        update_expr, expr_attr_values, expr_attr_names = [], {}, {}
+        if name and name != current_user.get("name"):
+            update_expr.append("#n = :n")
+            expr_attr_values[":n"] = name
+            expr_attr_names["#n"] = "name"
+        if email and email != current_user.get("email"):
+            update_expr.append("#e = :e")
+            expr_attr_values[":e"] = email
+            expr_attr_names["#e"] = "email"
 
-    table.update_item(
-        Key={"PK": f"USER#{user_id}", "SK": "PROFILE"},
-        UpdateExpression="SET " + ", ".join(update_expr),
-        ExpressionAttributeValues=expr_attr
-    )
+        if not update_expr:
+            return {"statusCode": 400, "body": json.dumps({"error": "Nada para atualizar"})}
 
-    return {"statusCode": 200, "headers": {"Content-Type": "application/json"},
-            "body": json.dumps({"message": "Usuário atualizado"})}
+        table.update_item(
+            Key=key,
+            UpdateExpression="SET " + ", ".join(update_expr),
+            ExpressionAttributeValues=expr_attr_values,
+            ExpressionAttributeNames=expr_attr_names
+        )
+
+        return {"statusCode": 200, "body": json.dumps({"message": "Usuário atualizado com sucesso"})}
+    except Exception as e:
+        return {"statusCode": 500, "body": json.dumps({"error": str(e)})}
 
 def delete_user(event):
     params = event.get("queryStringParameters") or {}
     user_id = params.get("id")
-    if not user_id:
-        return {"statusCode": 400, "headers": {"Content-Type": "application/json"},
-                "body": json.dumps({"error": "Parametro 'id' é obrigatório"})}
 
-    table.delete_item(Key={"PK": f"USER#{user_id}", "SK": "PROFILE"})
-    return {"statusCode": 200, "headers": {"Content-Type": "application/json"},
-            "body": json.dumps({"message": "Usuário deletado"})}
+    if not user_id:
+        return {
+            "statusCode": 400,
+            "headers": {"Content-Type": "application/json"},
+            "body": json.dumps({"error": "Parametro 'id' é obrigatório"})
+        }
+
+    key = {"PK": f"USER#{user_id}", "SK": "PROFILE"}
+
+    # 1️ tenta deletar e pede que o Dynamo retorne o item antigo
+    resp = table.delete_item(
+        Key=key,
+        ReturnValues="ALL_OLD"
+    )
+
+    # 2️ se o item não existia, "Attributes" estará vazio
+    if "Attributes" not in resp:
+        return {
+            "statusCode": 404,
+            "headers": {"Content-Type": "application/json"},
+            "body": json.dumps({"error": "Usuário não encontrado ou já deletado"})
+        }
+
+    # 3️ caso contrário, deletou com sucesso
+    return {
+        "statusCode": 200,
+        "headers": {"Content-Type": "application/json"},
+        "body": json.dumps({"message": "Usuário deletado com sucesso"})
+    }
